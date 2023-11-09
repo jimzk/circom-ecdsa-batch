@@ -1,72 +1,87 @@
 #!/bin/bash
 
-PHASE1=/data/powersOfTau28_hez_final_25.ptau
-BUILD_DIR=../../build/batch_ecdsa
-CIRCUIT_NAME=test_batch_ecdsa_verify_"${1}"
+if [ "$1" == "" ]; then
+    echo "No batch number provided. Exiting..."
+    exit 1
+fi
+
+PHASE1=../../circuits/pot21_final.ptau
+BUILD_DIR=../../build/batch_ecdsa_verify_"${1}"
+CIRCUIT_NAME=batch_ecdsa_verify_"${1}"
 TEST_DIR=../../test
-OUTPUT_DIR="$BUILD_DIR"/"$CIRCUIT_NAME"_js
+INPUT=input_"${1}".json
+
+if [ -f "$PHASE1" ]; then
+    echo "Found Phase 1 ptau file"
+else
+    echo "No Phase 1 ptau file found. Exiting..."
+    exit 1
+fi
 
 if [ ! -d "$BUILD_DIR" ]; then
     echo "No build directory found. Creating build directory..."
     mkdir -p "$BUILD_DIR"
 fi
 
+cp "$TEST_DIR"/circuits/test_"$CIRCUIT_NAME".circom "$CIRCUIT_NAME".circom
+cp "$TEST_DIR"/"$INPUT" "$INPUT"
+
 echo "****COMPILING CIRCUIT****"
 start=`date +%s`
-circom "$TEST_DIR"/circuits/test_batch_ecdsa_verify_"${1}".circom --r1cs --sym --wasm --output "$BUILD_DIR"
+set -x
+circom "$CIRCUIT_NAME".circom --r1cs --wasm --sym --c --wat --output "$BUILD_DIR"
+{ set +x; } 2>/dev/null
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
-echo "****Executing witness generation****"
+echo "****GENERATING WITNESS****"
 start=`date +%s`
-./"$OUTPUT_DIR"/"$CIRCUIT_NAME" "$TEST_DIR"/input_"${1}".json "$OUTPUT_DIR"/witness.wtns
+node "$BUILD_DIR"/"$CIRCUIT_NAME"_js/generate_witness.js "$BUILD_DIR"/"$CIRCUIT_NAME"_js/"$CIRCUIT_NAME".wasm "$INPUT" "$BUILD_DIR"/witness.wtns
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
-echo "****Executing witness generation****"
+echo "****GENERATING ZKEY 0****"
 start=`date +%s`
-$NODE_PATH --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=2048000 --initial-old-space-size=2048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=2048000 --expose-gc "$OUTPUT_DIR"/generate_witness.js "$OUTPUT_DIR"/"$CIRCUIT_NAME".wasm "$TEST_DIR"/input_"${1}".json  "$OUTPUT_DIR"/witness.wtns
+npx snarkjs groth16 setup "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
-# echo "****Converting witness to json****"
+# echo "****CONTRIBUTE TO THE PHASE 2 CEREMONY****"
 # start=`date +%s`
-# npx snarkjs wej "$OUTPUT_DIR"/witness.wtns "$OUTPUT_DIR"/witness.json
+# echo "test" | npx snarkjs zkey contribute "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey "$BUILD_DIR"/"$CIRCUIT_NAME"_1.zkey --name="1st Contributor Name"
 # end=`date +%s`
 # echo "DONE ($((end-start))s)"
 
-# echo "****GENERATING ZKEY 0****"
-# start=`date +%s`
-# npx --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=2048000 --initial-old-space-size=2048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=2048000 --expose-gc snarkjs zkey new "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$OUTPUT_DIR"/"$CIRCUIT_NAME"_p1.zkey -v
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
+echo "****GENERATING FINAL ZKEY****"
+start=`date +%s`
+npx snarkjs zkey beacon "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey "$BUILD_DIR"/"$CIRCUIT_NAME".zkey 0102030405060708090a0b0c0d0e0f101112231415161718221a1b1c1d1e1f 10 -n="Final Beacon phase2"
+end=`date +%s`
+echo "DONE ($((end-start))s)"
 
-# echo "****CONTRIBUTE TO PHASE 2 CEREMONY****"
-# start=`date +%s`
-# npx snarkjs zkey contribute -verbose "$OUTPUT_DIR"/"$CIRCUIT_NAME"_p1.zkey "$OUTPUT_DIR"/"$CIRCUIT_NAME"_p2.zkey -n="First phase2 contribution" -e="some random text for entropy"
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
+echo "****VERIFYING FINAL ZKEY****"
+start=`date +%s`
+npx snarkjs zkey verify "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/"$CIRCUIT_NAME".zkey
+end=`date +%s`
+echo "DONE ($((end-start))s)"
 
-# echo "****VERIFYING FINAL ZKEY****"
-# start=`date +%s`
-# npx --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=2048000 --initial-old-space-size=2048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=2048000 --expose-gc npx snarkjs zkey verify -verbose "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$OUTPUT_DIR"/"$CIRCUIT_NAME"_p2.zkey
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
+echo "** Exporting vkey"
+start=`date +%s`
+npx snarkjs zkey export verificationkey "$BUILD_DIR"/"$CIRCUIT_NAME".zkey "$BUILD_DIR"/vkey.json
+end=`date +%s`
+echo "DONE ($((end-start))s)"
 
-# echo "****EXPORTING VKEY****"
-# start=`date +%s`
-# npx snarkjs zkey export verificationkey "$OUTPUT_DIR"/"$CIRCUIT_NAME"_p2.zkey "$OUTPUT_DIR"/"$CIRCUIT_NAME"_vkey.json -v
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
+echo "****GENERATING PROOF****"
+start=`date +%s`
+npx snarkjs groth16 prove "$BUILD_DIR"/"$CIRCUIT_NAME".zkey "$BUILD_DIR"/witness.wtns "$BUILD_DIR"/proof.json "$BUILD_DIR"/public.json
+end=`date +%s`
+echo "DONE ($((end-start))s)"
 
-# echo "****GENERATING PROOF FOR SAMPLE INPUT****"
-# start=`date +%s`
-# npx snarkjs groth16 prove "$OUTPUT_DIR"/"$CIRCUIT_NAME"_p2.zkey "$OUTPUT_DIR"/witness.wtns "$OUTPUT_DIR"/"$CIRCUIT_NAME"_proof.json "$OUTPUT_DIR"/"$CIRCUIT_NAME"_public.json
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
+echo "****VERIFYING PROOF****"
+start=`date +%s`
+npx snarkjs groth16 verify "$BUILD_DIR"/vkey.json "$BUILD_DIR"/public.json "$BUILD_DIR"/proof.json
+end=`date +%s`
+echo "DONE ($((end-start))s)"
 
-# echo "****VERIFYING PROOF FOR SAMPLE INPUT****"
-# start=`date +%s`
-# npx snarkjs groth16 verify "$OUTPUT_DIR"/"$CIRCUIT_NAME"_vkey.json "$OUTPUT_DIR"/"$CIRCUIT_NAME"_public.json "$OUTPUT_DIR"/"$CIRCUIT_NAME"_proof.json -v
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
+rm "$CIRCUIT_NAME".circom
+rm "$INPUT"
+echo "DONE"

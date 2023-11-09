@@ -24,7 +24,9 @@ git submodule update
 yarn --cwd circuits/circom-ecdsa
 ```
 
-If you want to build the circuits, you'll need to download a Powers of Tau file with `2^20` constraints and copy it into the `circuits` subdirectory of the project, with the name `pot20_final.ptau`. We do not provide such a file in this repo due to its large size. You can download and copy Powers of Tau files from the Hermez trusted setup from [this repository](https://github.com/iden3/snarkjs#7-prepare-phase-2).
+If you want to build the circuits, you'll need to download a Powers of Tau file and copy it into the `circuits` subdirectory, with the name like `pot21_final.ptau` of `2^21` constraints.
+
+Download Powers of tau file from [this repository](https://github.com/iden3/snarkjs#7-prepare-phase-2). Choose the minimal pot file to avoid large disk space and computation. For example, constraints of verify2 is 1.9M and the minimal power of pot file is 21.
 
 ## Building the circuit
 
