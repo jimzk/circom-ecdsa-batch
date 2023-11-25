@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build:c": "cd ./scripts/batch_ecdsa && ./fast_build.sh",
-    "build:wasm": "cd ./scripts/batch_ecdsa && ./wasm_build.sh",
+    "build:wasm": "cd ./scripts/batch_ecdsa && NODE_OPTIONS=--max_old_space_size=8192 ./wasm_build.sh",
     "test": "NODE_OPTIONS=--max_old_space_size=56000 mocha -r ts-node/register 'test/**/*.ts'"
   },
   "repository": "git@github.com:puma314/batch-ecdsa.git",
