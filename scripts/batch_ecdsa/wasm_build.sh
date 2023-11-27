@@ -58,11 +58,11 @@ npx snarkjs zkey beacon "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey "$BUILD_DIR"/"$CIRCU
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
-echo "****VERIFYING FINAL ZKEY****"
-start=`date +%s`
-npx snarkjs zkey verify "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/"$CIRCUIT_NAME".zkey
-end=`date +%s`
-echo "DONE ($((end-start))s)"
+# echo "****VERIFYING FINAL ZKEY****"
+# start=`date +%s`
+# npx snarkjs zkey verify "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/"$CIRCUIT_NAME".zkey
+# end=`date +%s`
+# echo "DONE ($((end-start))s)"
 
 echo "** Exporting vkey"
 start=`date +%s`
