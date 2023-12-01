@@ -1,7 +1,7 @@
 pragma circom 2.0.4;
 
 include "ecdsa/sha256.circom";
-include "batch_ecdsa.circom";
+include "ecdsa-batch/batch_ecdsa.circom";
 
 template BatchECDSAVerifyNoPubkeyCheckCompact(n, k, b) {
     component batchEcdsa = BatchECDSAVerifyNoPubkeyCheck(n, k, b);

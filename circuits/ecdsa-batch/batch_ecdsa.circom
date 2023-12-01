@@ -1,12 +1,12 @@
 pragma circom 2.0.4;
 
-include "../node_modules/circomlib/circuits/poseidon.circom";
-include "ecdsa/bigint.circom";
-include "ecdsa/secp256k1.circom";
-include "ecdsa/bigint_func.circom";
-include "ecdsa/ecdsa_func.circom";
-include "ecdsa/ecdsa.circom";
-include "ecdsa/secp256k1_func.circom";
+include "../../node_modules/circomlib/circuits/poseidon.circom";
+include "../ecdsa/bigint.circom";
+include "../ecdsa/secp256k1.circom";
+include "../ecdsa/bigint_func.circom";
+include "../ecdsa/ecdsa_func.circom";
+include "../ecdsa/ecdsa.circom";
+include "../ecdsa/secp256k1_func.circom";
 include "bigint_ext.circom";
 
 template Secp256k1IsEqual(n, k) {
