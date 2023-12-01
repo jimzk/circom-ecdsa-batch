@@ -6,9 +6,10 @@ if [ "$1" == "" ]; then
 fi
 
 PHASE1=../../circuits/pot21_final.ptau
-BUILD_DIR=../../build/batch_ecdsa_verify_"${1}"
-CIRCUIT_NAME=batch_ecdsa_verify_"${1}"
-TEST_DIR=../../test
+BUILD_DIR=../../build/verify_"${1}"
+CIRCUIT_NAME=verify_"${1}"
+CIRCUIT_DIR="../../circuits"
+INPUT_DIR=../../test
 INPUT=input_"${1}".json
 
 if [ -f "$PHASE1" ]; then
@@ -23,13 +24,18 @@ if [ ! -d "$BUILD_DIR" ]; then
     mkdir -p "$BUILD_DIR"
 fi
 
-cp "$TEST_DIR"/circuits/test_"$CIRCUIT_NAME".circom "$CIRCUIT_NAME".circom
-cp "$TEST_DIR"/"$INPUT" "$INPUT"
+cp "$INPUT_DIR"/"$INPUT" "$INPUT"
 
 echo "****COMPILING CIRCUIT****"
 start=`date +%s`
 set -x
-circom "$CIRCUIT_NAME".circom --r1cs --wasm --sym --c --wat --output "$BUILD_DIR"
+circom "$CIRCUIT_DIR"/"$CIRCUIT_NAME".circom --r1cs --wasm --sym --c --wat --output "$BUILD_DIR"
+# exit is not 0
+if [ $? -ne 0 ]; then
+    echo "Circuit compilation failed. Exiting..."
+    exit 1
+fi
+
 { set +x; } 2>/dev/null
 end=`date +%s`
 echo "DONE ($((end-start))s)"
@@ -42,37 +48,25 @@ echo "DONE ($((end-start))s)"
 
 echo "****GENERATING ZKEY 0****"
 start=`date +%s`
-npx snarkjs groth16 setup "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey
+npx snarkjs groth16 setup "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/0.zkey
 end=`date +%s`
 echo "DONE ($((end-start))s)"
-
-# echo "****CONTRIBUTE TO THE PHASE 2 CEREMONY****"
-# start=`date +%s`
-# echo "test" | npx snarkjs zkey contribute "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey "$BUILD_DIR"/"$CIRCUIT_NAME"_1.zkey --name="1st Contributor Name"
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
 
 echo "****GENERATING FINAL ZKEY****"
 start=`date +%s`
-npx snarkjs zkey beacon "$BUILD_DIR"/"$CIRCUIT_NAME"_0.zkey "$BUILD_DIR"/"$CIRCUIT_NAME".zkey 0102030405060708090a0b0c0d0e0f101112231415161718221a1b1c1d1e1f 10 -n="Final Beacon phase2"
+npx snarkjs zkey beacon "$BUILD_DIR"/0.zkey "$BUILD_DIR"/final.zkey 0102030405060708090a0b0c0d0e0f101112231415161718221a1b1c1d1e1f 10 -n="Final Beacon phase2"
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
-# echo "****VERIFYING FINAL ZKEY****"
-# start=`date +%s`
-# npx snarkjs zkey verify "$BUILD_DIR"/"$CIRCUIT_NAME".r1cs "$PHASE1" "$BUILD_DIR"/"$CIRCUIT_NAME".zkey
-# end=`date +%s`
-# echo "DONE ($((end-start))s)"
-
 echo "** Exporting vkey"
 start=`date +%s`
-npx snarkjs zkey export verificationkey "$BUILD_DIR"/"$CIRCUIT_NAME".zkey "$BUILD_DIR"/vkey.json
+npx snarkjs zkey export verificationkey "$BUILD_DIR"/final.zkey "$BUILD_DIR"/vkey.json
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
 echo "****GENERATING PROOF****"
 start=`date +%s`
-npx snarkjs groth16 prove "$BUILD_DIR"/"$CIRCUIT_NAME".zkey "$BUILD_DIR"/witness.wtns "$BUILD_DIR"/proof.json "$BUILD_DIR"/public.json
+npx snarkjs groth16 prove "$BUILD_DIR"/final.zkey "$BUILD_DIR"/witness.wtns "$BUILD_DIR"/proof.json "$BUILD_DIR"/public.json
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
@@ -82,6 +76,5 @@ npx snarkjs groth16 verify "$BUILD_DIR"/vkey.json "$BUILD_DIR"/public.json "$BUI
 end=`date +%s`
 echo "DONE ($((end-start))s)"
 
-rm "$CIRCUIT_NAME".circom
 rm "$INPUT"
 echo "DONE"
